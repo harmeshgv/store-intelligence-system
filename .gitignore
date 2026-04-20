@@ -1,8 +1,10 @@
 __pycache__/
 *.pyc
 .env
-venv/
+.venv/
 data/
 videos/
 *.mp4
 *.zip
+*.pt
+*.db
