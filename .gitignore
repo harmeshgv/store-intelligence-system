@@ -8,3 +8,5 @@ videos/
 *.zip
 *.pt
 *.db
+events_output.jsonl
+experiments/
