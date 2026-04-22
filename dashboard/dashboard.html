@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+  <title>Store Intelligence Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+
+    .header {
+      padding: 20px;
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      padding: 15px;
+    }
+
+    .card {
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+
+    .kpi {
+      font-size: 28px;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    .label {
+      color: #94a3b8;
+      font-size: 14px;
+    }
+
+    .alert {
+      background: #dc2626;
+      padding: 10px;
+      border-radius: 8px;
+      margin: 10px;
+      display: none;
+    }
+
+    canvas {
+      margin-top: 10px;
+    }
+
+    .cam {
+      margin-top: 5px;
+      font-size: 13px;
+    }
+
+    .active {
+      color: #22c55e;
+    }
+
+    .dead {
+      color: #ef4444;
+    }
+
+    .progress-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 13px;
+      margin-top: 8px;
+      border-bottom: 1px solid #334155;
+      padding-bottom: 6px;
+    }
+
+    .progress-meta {
+      color: #94a3b8;
+    }
+  </style>
+
+</head>
+
+<body>
+
+<div class="header">🏪 Store Intelligence Dashboard</div>
+
+<div id="alert" class="alert"></div>
+
+<!-- KPI SECTION -->
+
+<div class="grid">
+  <div class="card">
+    <div class="label">Visitors</div>
+    <div id="visitors" class="kpi">0</div>
+  </div>
+
+  <div class="card">
+    <div class="label">Conversion Rate</div>
+    <div id="conversion" class="kpi">0%</div>
+  </div>
+
+  <div class="card">
+    <div class="label">Billing Traffic</div>
+    <div id="billing" class="kpi">0</div>
+  </div>
+
+  <div class="card">
+    <div class="label">System Debug</div>
+    <div id="debug" class="kpi" style="font-size:15px">Waiting...</div>
+  </div>
+</div>
+
+<!-- CHARTS -->
+
+<div class="grid" style="grid-template-columns: repeat(2, 1fr);">
+  <div class="card">
+    <div class="label">Funnel</div>
+    <canvas id="funnelChart"></canvas>
+  </div>
+
+  <div class="card">
+    <div class="label">Heatmap</div>
+    <canvas id="heatmapChart"></canvas>
+  </div>
+</div>
+
+<!-- PIPELINE PROGRESS -->
+<div class="grid" style="grid-template-columns: 1fr;">
+  <div class="card">
+    <div class="label">Pipeline Progress</div>
+    <div id="pipelineProgress" style="margin-top: 10px;">Waiting for pipeline updates...</div>
+  </div>
+</div>
+
+<script>
+const STORE = "STORE_BLR_002";
+
+let funnelChart, heatmapChart;
+
+let lastEventCount = 0;
+let lastTime = Date.now();
+
+function toMMSS(sec) {
+  const s = Math.max(0, Math.floor(sec || 0));
+  const mm = String(Math.floor(s / 60)).padStart(2, "0");
+  const ss = String(s % 60).padStart(2, "0");
+  return `${mm}:${ss}`;
+}
+
+async function fetchData() {
+  try {
+    const now = Date.now();
+
+    const metrics = await fetch(`http://localhost:8000/stores/${STORE}/metrics`).then(r => r.json());
+    const funnel = await fetch(`http://localhost:8000/stores/${STORE}/funnel`).then(r => r.json());
+    const heatmap = await fetch(`http://localhost:8000/stores/${STORE}/heatmap`).then(r => r.json());
+    const anomalies = await fetch(`http://localhost:8000/stores/${STORE}/anomalies`).then(r => r.json());
+    const debugData = await fetch(`http://localhost:8000/stores/${STORE}/debug`).then(r => r.json());
+    const progress = await fetch(`http://localhost:8000/stores/${STORE}/progress`).then(r => r.json());
+
+    // ---------- KPI ----------
+    document.getElementById("visitors").innerText = metrics.unique_visitors || 0;
+
+    document.getElementById("conversion").innerText =
+      ((metrics.conversion_rate || 0) * 100).toFixed(1) + "%";
+
+    document.getElementById("billing").innerText = (funnel.counts && funnel.counts.billing_queue) || 0;
+
+    // ---------- DEBUG ----------
+    const totalEvents =
+      ((funnel.counts && funnel.counts.entry) || 0) +
+      ((funnel.counts && funnel.counts.zone_visit) || 0) +
+      ((funnel.counts && funnel.counts.billing_queue) || 0);
+
+    const dt = (now - lastTime) / 1000;
+    const de = totalEvents - lastEventCount;
+    const eps = dt > 0 ? (de / dt).toFixed(2) : 0;
+
+    const activeHumans = (funnel.counts && funnel.counts.zone_visit) || 0;
+
+    // per camera
+    let camStats = "";
+    if (debugData.per_camera) {
+      for (const [cam, count] of Object.entries(debugData.per_camera)) {
+        const status = count > 0 ? "active" : "dead";
+        camStats += `<div class="cam ${status}">📷 ${cam}: ${count}</div>`;
+      }
+    }
+
+    document.getElementById("debug").innerHTML = `
+      👥 Humans: <b>${activeHumans}</b><br>
+      ⚡ Events/sec: <b>${eps}</b><br><br>
+
+      ${camStats}
+
+      <br>📦 Total: <b>${debugData.total_events || 0}</b><br>
+      🕒 ${new Date().toLocaleTimeString()}
+    `;
+
+    lastEventCount = totalEvents;
+    lastTime = now;
+
+    // ---------- FUNNEL ----------
+    const fdata = [
+      (funnel.counts && funnel.counts.entry) || 0,
+      (funnel.counts && funnel.counts.zone_visit) || 0,
+      (funnel.counts && funnel.counts.billing_queue) || 0,
+      (funnel.counts && funnel.counts.purchase) || 0
+    ];
+
+    if (!funnelChart) {
+      funnelChart = new Chart(document.getElementById("funnelChart"), {
+        type: 'bar',
+        data: {
+          labels: ["Entry", "Zone", "Billing", "Purchase"],
+          datasets: [{
+            label: "Users",
+            data: fdata
+          }]
+        }
+      });
+    } else {
+      funnelChart.data.datasets[0].data = fdata;
+      funnelChart.update();
+    }
+
+    // ---------- HEATMAP ----------
+    const zones = (heatmap.zones || []).map(z => z.zone_id);
+    const values = (heatmap.zones || []).map(z => z.normalized_score);
+
+    if (!heatmapChart) {
+      heatmapChart = new Chart(document.getElementById("heatmapChart"), {
+        type: 'bar',
+        data: {
+          labels: zones,
+          datasets: [{
+            label: "Activity",
+            data: values
+          }]
+        }
+      });
+    } else {
+      heatmapChart.data.labels = zones;
+      heatmapChart.data.datasets[0].data = values;
+      heatmapChart.update();
+    }
+
+    // ---------- ANOMALY ----------
+    const alertBox = document.getElementById("alert");
+
+    if (anomalies.length > 0) {
+      alertBox.style.display = "block";
+      alertBox.innerText =
+        anomalies[0].type + " → " + anomalies[0].suggested_action;
+    } else {
+      alertBox.style.display = "none";
+    }
+
+    // ---------- PIPELINE PROGRESS ----------
+    const progressBox = document.getElementById("pipelineProgress");
+    const cams = progress.cameras || [];
+    if (!cams.length) {
+      progressBox.innerHTML = "No active camera progress yet.";
+    } else {
+      progressBox.innerHTML = cams.map(c => `
+        <div class="progress-row">
+          <div>
+            <b>${c.camera_id}</b>
+            <span class="progress-meta">(${c.status || "RUNNING"})</span>
+          </div>
+          <div>
+            <b>${(c.progress_pct || 0).toFixed(1)}%</b>
+            <span class="progress-meta"> • ${toMMSS(c.elapsed_sec)} / ${toMMSS(c.duration_sec)}</span>
+          </div>
+        </div>
+      `).join("");
+    }
+
+  } catch (err) {
+    console.log("Error fetching:", err);
+  }
+}
+
+// refresh every 3 seconds
+setInterval(fetchData, 3000);
+fetchData();
+</script>
+
+</body>
+</html>
