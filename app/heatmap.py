@@ -1,63 +1,93 @@
-# app/heatmap.py
-from fastapi import APIRouter
+import sqlite3
+
+from fastapi import APIRouter, HTTPException
+
 from app.db import get_conn
 
 router = APIRouter()
 
+
 @router.get("/stores/{store_id}/heatmap")
 def get_heatmap(store_id: str):
-    with get_conn() as conn:
-        c = conn.cursor()
+    try:
+        with get_conn() as conn:
+            c = conn.cursor()
+            today_filter = "date(timestamp) = date('now')"
 
-        # 1) Distinct visitors per zone (frequency)
-        c.execute("""
-        SELECT zone_id, COUNT(DISTINCT visitor_id)
-        FROM events
-        WHERE store_id=? AND zone_id IS NOT NULL AND is_staff=0
-        GROUP BY zone_id
-        """, (store_id,))
-        visit_rows = c.fetchall()
-        visits = {row[0]: row[1] for row in visit_rows}
+            c.execute(
+                f"""
+                SELECT zone_id, COUNT(DISTINCT visitor_id)
+                FROM events
+                WHERE store_id=?
+                AND zone_id IS NOT NULL
+                AND is_staff=0
+                AND event_type IN ('ZONE_ENTER', 'ZONE_DWELL')
+                AND {today_filter}
+                GROUP BY zone_id
+                """,
+                (store_id,),
+            )
+            visits = {row[0]: row[1] for row in c.fetchall()}
 
-        # 2) Avg dwell per zone (engagement)
-        c.execute("""
-        SELECT zone_id, AVG(dwell_ms)
-        FROM events
-        WHERE store_id=? AND zone_id IS NOT NULL AND dwell_ms > 0 AND is_staff=0
-        GROUP BY zone_id
-        """, (store_id,))
-        dwell_rows = c.fetchall()
-        dwell = {row[0]: (row[1] or 0) for row in dwell_rows}
+            c.execute(
+                f"""
+                SELECT zone_id, AVG(dwell_ms)
+                FROM events
+                WHERE store_id=?
+                AND zone_id IS NOT NULL
+                AND is_staff=0
+                AND event_type='ZONE_DWELL'
+                AND dwell_ms > 0
+                AND {today_filter}
+                GROUP BY zone_id
+                """,
+                (store_id,),
+            )
+            dwell = {row[0]: (row[1] or 0) for row in c.fetchall()}
 
-        # 3) Combine into a raw score
-        # simple: score = visits * avg_dwell
-        scores = {}
-        for z in set(list(visits.keys()) + list(dwell.keys())):
-            v = visits.get(z, 0)
-            d = dwell.get(z, 0)
-            scores[z] = v * d
+            zones = sorted(set(visits.keys()) | set(dwell.keys()))
+            combined_scores = {}
+            for zone in zones:
+                combined_scores[zone] = visits.get(zone, 0) * (dwell.get(zone, 0) / 1000.0)
 
-        # 4) Normalize to 0–100
-        max_score = max(scores.values()) if scores else 0
-        heatmap = {}
-        for z, s in scores.items():
-            if max_score == 0:
-                heatmap[z] = 0
-            else:
-                heatmap[z] = round((s / max_score) * 100, 2)
+            max_score = max(combined_scores.values()) if combined_scores else 0
+            heatmap = []
+            for zone in zones:
+                normalized = (
+                    round((combined_scores[zone] / max_score) * 100, 2) if max_score else 0.0
+                )
+                heatmap.append(
+                    {
+                        "zone_id": zone,
+                        "visit_frequency": visits.get(zone, 0),
+                        "avg_dwell_ms": round(dwell.get(zone, 0), 2),
+                        "normalized_score": normalized,
+                    }
+                )
 
-        # 5) Data confidence (based on sessions)
-        c.execute("""
-        SELECT COUNT(DISTINCT visitor_id)
-        FROM events
-        WHERE store_id=? AND is_staff=0
-        """, (store_id,))
-        sessions = c.fetchone()[0] or 0
+            c.execute(
+                f"""
+                SELECT COUNT(DISTINCT visitor_id)
+                FROM events
+                WHERE store_id=?
+                AND is_staff=0
+                AND {today_filter}
+                """,
+                (store_id,),
+            )
+            sessions = c.fetchone()[0] or 0
 
-        confidence = "LOW" if sessions < 20 else "HIGH"
-
-    return {
-        "zones": heatmap,
-        "data_confidence": confidence,
-        "sessions": sessions
-    }
+            return {
+                "store_id": store_id,
+                "zones": heatmap,
+                "data_confidence": "LOW" if sessions < 20 else "HIGH",
+                "session_count": sessions,
+            }
+    except sqlite3.Error:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "database_unavailable",
+                "message": "Unable to compute heatmap",
+            },
+        )

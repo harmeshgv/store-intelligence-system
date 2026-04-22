@@ -1,5 +1,6 @@
 from pydantic import BaseModel
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
+
 
 class Event(BaseModel):
     event_id: str
@@ -12,4 +13,4 @@ class Event(BaseModel):
     dwell_ms: int
     is_staff: bool
     confidence: float
-    metadata: Dict
+    metadata: Optional[Dict[str, Any]] = None

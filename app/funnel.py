@@ -1,54 +1,99 @@
-from fastapi import APIRouter
+import sqlite3
+
+from fastapi import APIRouter, HTTPException
+
 from app.db import get_conn
 
 router = APIRouter()
 
+
 @router.get("/stores/{store_id}/funnel")
 def get_funnel(store_id: str):
-    with get_conn() as conn:
-        c = conn.cursor()
+    try:
+        with get_conn() as conn:
+            c = conn.cursor()
+            today_filter = "date(timestamp) = date('now')"
 
-        # ENTRY
-        c.execute("""
-        SELECT COUNT(DISTINCT visitor_id)
-        FROM events
-        WHERE store_id=? AND event_type='ENTRY' AND is_staff=0
-        """, (store_id,))
-        entry = c.fetchone()[0] or 0
+            c.execute(
+                f"""
+                SELECT DISTINCT visitor_id
+                FROM events
+                WHERE store_id=?
+                AND event_type IN ('ENTRY', 'REENTRY')
+                AND is_staff=0
+                AND {today_filter}
+                """,
+                (store_id,),
+            )
+            entry_set = {row[0] for row in c.fetchall()}
 
-        # ZONE VISIT
-        c.execute("""
-        SELECT COUNT(DISTINCT visitor_id)
-        FROM events
-        WHERE store_id=? AND event_type='ZONE_ENTER' AND is_staff=0
-        """, (store_id,))
-        zone = c.fetchone()[0] or 0
+            c.execute(
+                f"""
+                SELECT DISTINCT visitor_id
+                FROM events
+                WHERE store_id=?
+                AND event_type IN ('ZONE_ENTER', 'ZONE_DWELL')
+                AND is_staff=0
+                AND {today_filter}
+                """,
+                (store_id,),
+            )
+            zone_set = {row[0] for row in c.fetchall()}
 
-        # BILLING (zone_id = BILLING)
-        c.execute("""
-        SELECT COUNT(DISTINCT visitor_id)
-        FROM events
-        WHERE store_id=? AND zone_id='BILLING' AND is_staff=0
-        """, (store_id,))
-        billing = c.fetchone()[0] or 0
+            c.execute(
+                f"""
+                SELECT DISTINCT visitor_id
+                FROM events
+                WHERE store_id=?
+                AND event_type='BILLING_QUEUE_JOIN'
+                AND is_staff=0
+                AND {today_filter}
+                """,
+                (store_id,),
+            )
+            billing_set = {row[0] for row in c.fetchall()}
 
-        # PURCHASE (simplified logic)
-        # later you will map using POS data
-        purchase = billing  # temporary assumption
+            c.execute(
+                f"""
+                SELECT DISTINCT visitor_id
+                FROM events
+                WHERE store_id=?
+                AND event_type='BILLING_QUEUE_JOIN'
+                AND is_staff=0
+                AND {today_filter}
+                """,
+                (store_id,),
+            )
+            purchase_set = {row[0] for row in c.fetchall()}
 
-    # Drop-offs
-    drop_entry_zone = entry - zone
-    drop_zone_billing = zone - billing
-    drop_billing_purchase = billing - purchase
+            entry_count = len(entry_set)
+            zone_count = len(entry_set & zone_set)
+            billing_count = len(entry_set & zone_set & billing_set)
+            purchase_count = len(entry_set & zone_set & billing_set & purchase_set)
 
-    return {
-        "entry": entry,
-        "zone_visit": zone,
-        "billing": billing,
-        "purchase": purchase,
-        "drop_off": {
-            "entry_to_zone": drop_entry_zone,
-            "zone_to_billing": drop_zone_billing,
-            "billing_to_purchase": drop_billing_purchase
-        }
-    }
+            def pct(num: int, den: int) -> float:
+                return round((num / den) * 100, 2) if den else 0.0
+
+            return {
+                "counts": {
+                    "entry": entry_count,
+                    "zone_visit": zone_count,
+                    "billing_queue": billing_count,
+                    "purchase": purchase_count,
+                },
+                "drop_off_pct": {
+                    "entry_to_zone": pct(entry_count - zone_count, entry_count),
+                    "zone_to_billing": pct(zone_count - billing_count, zone_count),
+                    "billing_to_purchase": pct(
+                        billing_count - purchase_count, billing_count
+                    ),
+                },
+            }
+    except sqlite3.Error:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "database_unavailable",
+                "message": "Unable to compute funnel",
+            },
+        )
