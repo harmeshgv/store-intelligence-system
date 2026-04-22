@@ -4,7 +4,12 @@ import supervision as sv
 
 
 class SmartTracker:
-    def __init__(self):
+    def __init__(
+        self,
+        entry_line=None,
+        inside_sign=1,
+        crossing_cooldown_frames=15,
+    ):
         self.tracker = sv.ByteTrack()
 
         self.track_first_seen = {}
@@ -22,6 +27,11 @@ class SmartTracker:
         self.TTL = 50
         self.MAX_DIST = 150
         self.MIN_FRAMES = 15
+        self.entry_line = entry_line
+        self.inside_sign = inside_sign
+        self.crossing_cooldown_frames = crossing_cooldown_frames
+        self.prev_center_by_gid = {}
+        self.last_cross_frame_by_gid = {}
 
     def _center(self, b):
         x1, y1, x2, y2 = b
@@ -40,6 +50,9 @@ class SmartTracker:
                 best_d, best_id = d, gid
         return best_id
 
+    def _side_of_line(self, p, a, b):
+        return (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0])
+
     def update(self, detections):
         self.frame_count += 1
         if not detections:
@@ -52,6 +65,9 @@ class SmartTracker:
         )
 
         tracks = self.tracker.update_with_detections(det_sv)
+        if tracks is None or tracks.tracker_id is None:
+            return []
+
         out = []
 
         for box, tid in zip(tracks.xyxy, tracks.tracker_id):
@@ -79,13 +95,42 @@ class SmartTracker:
             self.global_last_pos[gid] = c
 
             duration = self.frame_count - self.track_first_seen[tid]
+            is_valid = duration >= self.MIN_FRAMES
+
+            crossed = False
+            direction = None
+            if self.entry_line is not None and is_valid:
+                prev = self.prev_center_by_gid.get(gid)
+                if prev is not None:
+                    a, b = self.entry_line
+                    s1 = self._side_of_line(prev, a, b)
+                    s2 = self._side_of_line(c, a, b)
+                    if s1 == 0:
+                        s1 = 1e-6
+                    if s2 == 0:
+                        s2 = -1e-6
+
+                    sign1 = 1 if s1 > 0 else -1
+                    sign2 = 1 if s2 > 0 else -1
+
+                    cooldown_ok = (
+                        self.frame_count - self.last_cross_frame_by_gid.get(gid, -99999)
+                    ) > self.crossing_cooldown_frames
+
+                    if sign1 != sign2 and cooldown_ok:
+                        crossed = True
+                        direction = "ENTRY" if sign2 == self.inside_sign else "EXIT"
+                        self.last_cross_frame_by_gid[gid] = self.frame_count
+                self.prev_center_by_gid[gid] = c
 
             out.append({
                 "global_id": gid,
                 "bbox": [x1, y1, x2, y2],
                 "center": c,
                 "duration": duration,
-                "is_valid": duration >= self.MIN_FRAMES
+                "is_valid": is_valid,
+                "crossed": crossed,
+                "direction": direction,
             })
         return out
 

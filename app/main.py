@@ -11,6 +11,7 @@ from app.ingestion import router as ingestion_router
 from app.logging_middleware import logging_middleware
 from app.metrics import router as metrics_router
 from app.progress import router as progress_router
+from app.stream import router as stream_router
 
 
 
@@ -35,4 +36,5 @@ app.include_router(anomalies_router)
 app.include_router(heatmap_router)
 app.include_router(debug_router)
 app.include_router(progress_router)
+app.include_router(stream_router)
 
