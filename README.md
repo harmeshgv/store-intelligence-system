@@ -1,5 +1,9 @@
 # Store Intelligence Challenge Submission
 
+## Prerequisites
+
+Put the challenge camera clips (for example `CAM 1.mp4` through `CAM 5.mp4`) inside a `data/` folder at the repo root **before** you run Docker Compose, local scripts, or experiments. Create `data/` if it does not exist; it is not committed (see `.gitignore`).
+
 ## Setup (5 commands)
 
 ```bash
