@@ -3,7 +3,7 @@
 ## Setup (5 commands)
 
 ```bash
-git clone <YOUR_REPO_URL>
+git clone https://github.com/harmeshgv/store-intelligence-system.git
 cd store-intelligence-system
 docker compose up --build -d
 docker compose ps
