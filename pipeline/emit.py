@@ -10,6 +10,7 @@ class EventEmitter:
         self.camera_type = camera_type
 
         self.sessions = {}
+        self.tick = 0
 
         self.DWELL_INTERVAL_MS = 30000
 
@@ -45,9 +46,14 @@ class EventEmitter:
             now = self._now_ms()
             self.sessions[gid] = {
                 "entered": False,
+                "exited_once": False,
                 "seq": 1,
                 "entry_time": now,
+                "zone_enter_time": now,
                 "last_dwell_emit": now,
+                "last_seen_tick": self.tick,
+                "in_zone": False,
+                "billing_joined": False,
                 "visitor_id": None,
                 "id_source": None,
             }
@@ -70,15 +76,19 @@ class EventEmitter:
         return session["visitor_id"], session["id_source"]
 
     def process(self, tracks):
+        self.tick += 1
         events = []
         now = self._now_ms()
+        seen_gids = set()
 
         for t in tracks:
             if not t["is_valid"]:
                 continue
 
             gid = t["global_id"]
+            seen_gids.add(gid)
             s = self._get_session(gid)
+            s["last_seen_tick"] = self.tick
 
             # -------- ENTRY --------
             if self.camera_type == "ENTRY":
@@ -89,8 +99,11 @@ class EventEmitter:
                         s["entry_time"] = now
                         s["visitor_id"] = f"VIS_{gid}"
                         s["id_source"] = "entry_line"
+                        if s["exited_once"]:
+                            evt_type = "REENTRY"
                     else:
                         s["entered"] = False
+                        s["exited_once"] = True
                     visitor_id, id_source = self._ensure_visitor_id(gid, s)
                     events.append(
                         self._evt(
@@ -102,10 +115,20 @@ class EventEmitter:
 
             # -------- FLOOR --------
             elif self.camera_type == "FLOOR":
-                dwell = now - s["entry_time"]
+                visitor_id, id_source = self._ensure_visitor_id(gid, s)
+                if not s["in_zone"]:
+                    s["in_zone"] = True
+                    s["zone_enter_time"] = now
+                    events.append(
+                        self._evt(
+                            gid, "ZONE_ENTER", "FLOOR", 0, s["seq"],
+                            visitor_id=visitor_id, id_source=id_source
+                        )
+                    )
+                    s["seq"] += 1
+                dwell = now - s["zone_enter_time"]
 
                 if now - s["last_dwell_emit"] >= self.DWELL_INTERVAL_MS:
-                    visitor_id, id_source = self._ensure_visitor_id(gid, s)
                     events.append(
                         self._evt(
                             gid, "ZONE_DWELL", "FLOOR", dwell, s["seq"],
@@ -117,10 +140,29 @@ class EventEmitter:
 
             # -------- BILLING --------
             elif self.camera_type == "BILLING":
-                dwell = now - s["entry_time"]
+                visitor_id, id_source = self._ensure_visitor_id(gid, s)
+                if not s["in_zone"]:
+                    s["in_zone"] = True
+                    s["zone_enter_time"] = now
+                    events.append(
+                        self._evt(
+                            gid, "ZONE_ENTER", "BILLING", 0, s["seq"],
+                            visitor_id=visitor_id, id_source=id_source
+                        )
+                    )
+                    s["seq"] += 1
+                    queue_evt = self._evt(
+                        gid, "BILLING_QUEUE_JOIN", "BILLING", 0, s["seq"],
+                        visitor_id=visitor_id, id_source=id_source
+                    )
+                    # Simple online estimate: everyone currently visible in billing except self.
+                    queue_evt["metadata"]["queue_depth"] = max(0, len(seen_gids) - 1)
+                    events.append(queue_evt)
+                    s["billing_joined"] = True
+                    s["seq"] += 1
+                dwell = now - s["zone_enter_time"]
 
                 if now - s["last_dwell_emit"] >= self.DWELL_INTERVAL_MS:
-                    visitor_id, id_source = self._ensure_visitor_id(gid, s)
                     events.append(
                         self._evt(
                             gid, "BILLING_QUEUE_JOIN", "BILLING", dwell, s["seq"],
@@ -133,5 +175,34 @@ class EventEmitter:
             # -------- GODOWN --------
             elif self.camera_type == "GODOWN":
                 pass
+
+        if self.camera_type in ("FLOOR", "BILLING"):
+            for gid, s in self.sessions.items():
+                if not s.get("in_zone"):
+                    continue
+                # treat missing for 2 consecutive process cycles as zone leave
+                if gid in seen_gids:
+                    continue
+                if (self.tick - s.get("last_seen_tick", self.tick)) < 2:
+                    continue
+                visitor_id, id_source = self._ensure_visitor_id(gid, s)
+                zone = "BILLING" if self.camera_type == "BILLING" else "FLOOR"
+                if self.camera_type == "BILLING" and s.get("billing_joined"):
+                    events.append(
+                        self._evt(
+                            gid, "BILLING_QUEUE_ABANDON", zone, 0, s["seq"],
+                            visitor_id=visitor_id, id_source=id_source
+                        )
+                    )
+                    s["seq"] += 1
+                events.append(
+                    self._evt(
+                        gid, "ZONE_EXIT", zone, 0, s["seq"],
+                        visitor_id=visitor_id, id_source=id_source
+                    )
+                )
+                s["seq"] += 1
+                s["in_zone"] = False
+                s["billing_joined"] = False
 
         return events

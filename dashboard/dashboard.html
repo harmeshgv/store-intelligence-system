@@ -1,162 +1,253 @@
 <!DOCTYPE html>
-
 <html>
 <head>
   <title>Store Intelligence Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
   <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --border: #334155;
+      --accent: #22c55e;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: 'Segoe UI', sans-serif;
-      background: #0f172a;
-      color: #e2e8f0;
+      font-family: "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
     }
-
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 18px;
+    }
     .header {
-      padding: 20px;
-      font-size: 24px;
-      font-weight: bold;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 14px;
     }
-
-    .grid {
+    .title {
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .sub {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    select {
+      background: #0b1223;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+    .alert {
+      display: none;
+      background: #7f1d1d;
+      border: 1px solid #dc2626;
+      padding: 10px 12px;
+      border-radius: 10px;
+      margin-bottom: 14px;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.22);
+    }
+    .card-title {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .feed {
+      width: 100%;
+      min-height: 260px;
+      max-height: 520px;
+      object-fit: contain;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #020617;
+    }
+    .meta-line {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .kpi-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 15px;
-      padding: 15px;
+      gap: 12px;
+      margin-bottom: 14px;
     }
-
-    .card {
-      background: #1e293b;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    .kpi-val {
+      font-size: 26px;
+      font-weight: 700;
     }
-
-    .kpi {
-      font-size: 28px;
-      font-weight: bold;
-      margin-top: 10px;
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 14px;
     }
-
-    .label {
-      color: #94a3b8;
-      font-size: 14px;
+    .camera-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 14px;
     }
-
-    .alert {
-      background: #dc2626;
+    .camera-tile {
+      background: #111827;
+      border: 1px solid var(--border);
+      border-radius: 10px;
       padding: 10px;
+    }
+    .camera-tile-title {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .camera-mini-feed {
+      width: 100%;
+      height: 180px;
+      object-fit: contain;
       border-radius: 8px;
-      margin: 10px;
-      display: none;
+      border: 1px solid var(--border);
+      background: #020617;
     }
-
-    canvas {
-      margin-top: 10px;
+    .progress-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
     }
-
-    .cam {
-      margin-top: 5px;
-      font-size: 13px;
-    }
-
-    .active {
-      color: #22c55e;
-    }
-
-    .dead {
-      color: #ef4444;
-    }
-
     .progress-row {
       display: flex;
       justify-content: space-between;
-      gap: 12px;
-      font-size: 13px;
-      margin-top: 8px;
-      border-bottom: 1px solid #334155;
+      gap: 10px;
+      border-bottom: 1px solid var(--border);
       padding-bottom: 6px;
+      font-size: 13px;
     }
-
-    .progress-meta {
-      color: #94a3b8;
+    .chip {
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+    }
+    .chip.ok { color: var(--accent); }
+    .chip.warn { color: var(--warn); }
+    .chip.bad { color: var(--danger); }
+    @media (max-width: 1100px) {
+      .layout { grid-template-columns: 1fr; }
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .chart-grid { grid-template-columns: 1fr; }
+      .camera-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 760px) {
+      .camera-grid { grid-template-columns: 1fr; }
     }
   </style>
-
 </head>
-
 <body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <div class="title">Store Intelligence Dashboard</div>
+        <div class="sub">Main overview + camera-focused live detection</div>
+      </div>
+      <div class="toolbar">
+        <label for="cameraSelect" class="sub">Focus camera</label>
+        <select id="cameraSelect"></select>
+      </div>
+    </div>
 
-<div class="header">🏪 Store Intelligence Dashboard</div>
+    <div id="alert" class="alert"></div>
 
-<div id="alert" class="alert"></div>
+    <div class="layout">
+      <div class="card">
+        <div class="card-title">Focused Live Detection Feed</div>
+        <img id="liveFeed" class="feed" alt="Live detection stream" />
+        <div id="feedMeta" class="meta-line">Waiting for stream...</div>
+      </div>
 
-<div class="grid" style="grid-template-columns: 1fr;">
-  <div class="card">
-    <div class="label">Live Detection Feed (Entry Camera)</div>
-    <img
-      id="liveEntryFeed"
-      src="http://localhost:8000/stream/CAM_ENTRY_01"
-      style="width: 100%; margin-top: 10px; border-radius: 10px; border: 1px solid #334155;"
-      alt="Live detection stream"
-    />
+      <div class="card">
+        <div class="card-title">Camera Processing Progress</div>
+        <div id="pipelineProgress" class="progress-list">Waiting for pipeline updates...</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom: 14px;">
+      <div class="card-title">All Camera Detection Streams</div>
+      <div id="allCameraFeeds" class="camera-grid"></div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="card">
+        <div class="card-title">Unique Visitors</div>
+        <div id="visitors" class="kpi-val">0</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Conversion Rate</div>
+        <div id="conversion" class="kpi-val">0%</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Billing Queue Visitors</div>
+        <div id="billing" class="kpi-val">0</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Feed Health</div>
+        <div id="feedHealth" class="kpi-val">--</div>
+      </div>
+    </div>
+
+    <div class="chart-grid">
+      <div class="card">
+        <div class="card-title">Funnel</div>
+        <canvas id="funnelChart"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-title">Heatmap Activity</div>
+        <canvas id="heatmapChart"></canvas>
+      </div>
+    </div>
   </div>
-</div>
-
-<!-- KPI SECTION -->
-
-<div class="grid">
-  <div class="card">
-    <div class="label">Visitors</div>
-    <div id="visitors" class="kpi">0</div>
-  </div>
-
-  <div class="card">
-    <div class="label">Conversion Rate</div>
-    <div id="conversion" class="kpi">0%</div>
-  </div>
-
-  <div class="card">
-    <div class="label">Billing Traffic</div>
-    <div id="billing" class="kpi">0</div>
-  </div>
-
-  <div class="card">
-    <div class="label">System Debug</div>
-    <div id="debug" class="kpi" style="font-size:15px">Waiting...</div>
-  </div>
-</div>
-
-<!-- CHARTS -->
-
-<div class="grid" style="grid-template-columns: repeat(2, 1fr);">
-  <div class="card">
-    <div class="label">Funnel</div>
-    <canvas id="funnelChart"></canvas>
-  </div>
-
-  <div class="card">
-    <div class="label">Heatmap</div>
-    <canvas id="heatmapChart"></canvas>
-  </div>
-</div>
-
-<!-- PIPELINE PROGRESS -->
-<div class="grid" style="grid-template-columns: 1fr;">
-  <div class="card">
-    <div class="label">Pipeline Progress</div>
-    <div id="pipelineProgress" style="margin-top: 10px;">Waiting for pipeline updates...</div>
-  </div>
-</div>
 
 <script>
+const API_BASE = "http://localhost:8000";
 const STORE = "STORE_BLR_002";
 
-let funnelChart, heatmapChart;
+const cameraSelect = document.getElementById("cameraSelect");
+const liveFeed = document.getElementById("liveFeed");
+const feedMeta = document.getElementById("feedMeta");
+const feedHealth = document.getElementById("feedHealth");
+const allCameraFeeds = document.getElementById("allCameraFeeds");
 
-let lastEventCount = 0;
-let lastTime = Date.now();
+let selectedCameraId = "CAM_ENTRY_01";
+let funnelChart = null;
+let heatmapChart = null;
 
 function toMMSS(sec) {
   const s = Math.max(0, Math.floor(sec || 0));
@@ -165,144 +256,157 @@ function toMMSS(sec) {
   return `${mm}:${ss}`;
 }
 
-async function fetchData() {
-  try {
-    const now = Date.now();
+async function api(path) {
+  const res = await fetch(`${API_BASE}${path}`);
+  if (!res.ok) throw new Error(`${path} failed (${res.status})`);
+  return res.json();
+}
 
-    const metrics = await fetch(`http://localhost:8000/stores/${STORE}/metrics`).then(r => r.json());
-    const funnel = await fetch(`http://localhost:8000/stores/${STORE}/funnel`).then(r => r.json());
-    const heatmap = await fetch(`http://localhost:8000/stores/${STORE}/heatmap`).then(r => r.json());
-    const anomalies = await fetch(`http://localhost:8000/stores/${STORE}/anomalies`).then(r => r.json());
-    const debugData = await fetch(`http://localhost:8000/stores/${STORE}/debug`).then(r => r.json());
-    const progress = await fetch(`http://localhost:8000/stores/${STORE}/progress`).then(r => r.json());
+function setFocusedCamera(camId) {
+  selectedCameraId = camId;
+  liveFeed.src = `${API_BASE}/stream/${encodeURIComponent(camId)}`;
+  feedMeta.innerText = `Focused camera: ${camId}`;
+}
 
-    // ---------- KPI ----------
-    document.getElementById("visitors").innerText = metrics.unique_visitors || 0;
+function renderCameraOptions(cameraIds) {
+  const unique = [...new Set(["CAM_ENTRY_01", ...cameraIds])];
+  cameraSelect.innerHTML = unique
+    .map(id => `<option value="${id}">${id}</option>`)
+    .join("");
+  if (!unique.includes(selectedCameraId)) {
+    selectedCameraId = unique[0];
+  }
+  cameraSelect.value = selectedCameraId;
+  setFocusedCamera(selectedCameraId);
+}
 
-    document.getElementById("conversion").innerText =
-      ((metrics.conversion_rate || 0) * 100).toFixed(1) + "%";
+function renderAllCameraFeeds(cameraIds) {
+  const unique = [...new Set(["CAM_ENTRY_01", ...cameraIds])];
+  allCameraFeeds.innerHTML = unique.map(id => `
+    <div class="camera-tile">
+      <div class="camera-tile-title">
+        <span>${id}</span>
+        <span class="chip ${id === selectedCameraId ? "ok" : "warn"}">${id === selectedCameraId ? "FOCUSED" : "LIVE"}</span>
+      </div>
+      <img
+        class="camera-mini-feed"
+        src="${API_BASE}/stream/${encodeURIComponent(id)}"
+        alt="Stream ${id}"
+      />
+    </div>
+  `).join("");
+}
 
-    document.getElementById("billing").innerText = (funnel.counts && funnel.counts.billing_queue) || 0;
-
-    // ---------- DEBUG ----------
-    const totalEvents =
-      ((funnel.counts && funnel.counts.entry) || 0) +
-      ((funnel.counts && funnel.counts.zone_visit) || 0) +
-      ((funnel.counts && funnel.counts.billing_queue) || 0);
-
-    const dt = (now - lastTime) / 1000;
-    const de = totalEvents - lastEventCount;
-    const eps = dt > 0 ? (de / dt).toFixed(2) : 0;
-
-    const activeHumans = (funnel.counts && funnel.counts.zone_visit) || 0;
-
-    // per camera
-    let camStats = "";
-    if (debugData.per_camera) {
-      for (const [cam, count] of Object.entries(debugData.per_camera)) {
-        const status = count > 0 ? "active" : "dead";
-        camStats += `<div class="cam ${status}">📷 ${cam}: ${count}</div>`;
-      }
-    }
-
-    document.getElementById("debug").innerHTML = `
-      👥 Humans: <b>${activeHumans}</b><br>
-      ⚡ Events/sec: <b>${eps}</b><br><br>
-
-      ${camStats}
-
-      <br>📦 Total: <b>${debugData.total_events || 0}</b><br>
-      🕒 ${new Date().toLocaleTimeString()}
-    `;
-
-    lastEventCount = totalEvents;
-    lastTime = now;
-
-    // ---------- FUNNEL ----------
-    const fdata = [
-      (funnel.counts && funnel.counts.entry) || 0,
-      (funnel.counts && funnel.counts.zone_visit) || 0,
-      (funnel.counts && funnel.counts.billing_queue) || 0,
-      (funnel.counts && funnel.counts.purchase) || 0
-    ];
-
-    if (!funnelChart) {
-      funnelChart = new Chart(document.getElementById("funnelChart"), {
-        type: 'bar',
-        data: {
-          labels: ["Entry", "Zone", "Billing", "Purchase"],
-          datasets: [{
-            label: "Users",
-            data: fdata
-          }]
-        }
-      });
-    } else {
-      funnelChart.data.datasets[0].data = fdata;
-      funnelChart.update();
-    }
-
-    // ---------- HEATMAP ----------
-    const zones = (heatmap.zones || []).map(z => z.zone_id);
-    const values = (heatmap.zones || []).map(z => z.normalized_score);
-
-    if (!heatmapChart) {
-      heatmapChart = new Chart(document.getElementById("heatmapChart"), {
-        type: 'bar',
-        data: {
-          labels: zones,
-          datasets: [{
-            label: "Activity",
-            data: values
-          }]
-        }
-      });
-    } else {
-      heatmapChart.data.labels = zones;
-      heatmapChart.data.datasets[0].data = values;
-      heatmapChart.update();
-    }
-
-    // ---------- ANOMALY ----------
-    const alertBox = document.getElementById("alert");
-
-    if (anomalies.length > 0) {
-      alertBox.style.display = "block";
-      alertBox.innerText =
-        anomalies[0].type + " → " + anomalies[0].suggested_action;
-    } else {
-      alertBox.style.display = "none";
-    }
-
-    // ---------- PIPELINE PROGRESS ----------
-    const progressBox = document.getElementById("pipelineProgress");
-    const cams = progress.cameras || [];
-    if (!cams.length) {
-      progressBox.innerHTML = "No active camera progress yet.";
-    } else {
-      progressBox.innerHTML = cams.map(c => `
-        <div class="progress-row">
-          <div>
-            <b>${c.camera_id}</b>
-            <span class="progress-meta">(${c.status || "RUNNING"})</span>
-          </div>
-          <div>
-            <b>${(c.progress_pct || 0).toFixed(1)}%</b>
-            <span class="progress-meta"> • ${toMMSS(c.elapsed_sec)} / ${toMMSS(c.duration_sec)}</span>
-          </div>
+function renderProgress(progress) {
+  const progressBox = document.getElementById("pipelineProgress");
+  const cams = progress.cameras || [];
+  if (!cams.length) {
+    progressBox.innerHTML = "No active camera progress yet.";
+    return;
+  }
+  progressBox.innerHTML = cams.map(c => {
+    const status = (c.status || "RUNNING").toUpperCase();
+    const cls = status === "DONE" ? "ok" : (status === "FAILED" ? "bad" : "warn");
+    return `
+      <div class="progress-row">
+        <div>
+          <b>${c.camera_id}</b>
+          <span class="chip ${cls}">${status}</span>
         </div>
-      `).join("");
-    }
+        <div>
+          <b>${(c.progress_pct || 0).toFixed(1)}%</b>
+          <span class="sub"> ${toMMSS(c.elapsed_sec)} / ${toMMSS(c.duration_sec)}</span>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
 
-  } catch (err) {
-    console.log("Error fetching:", err);
+function renderFunnel(funnel) {
+  const f = funnel.counts || {};
+  const fdata = [f.entry || 0, f.zone_visit || 0, f.billing_queue || 0, f.purchase || 0];
+  if (!funnelChart) {
+    funnelChart = new Chart(document.getElementById("funnelChart"), {
+      type: "bar",
+      data: {
+        labels: ["Entry", "Zone", "Billing", "Purchase"],
+        datasets: [{ label: "Visitors", data: fdata }]
+      }
+    });
+  } else {
+    funnelChart.data.datasets[0].data = fdata;
+    funnelChart.update();
   }
 }
 
-// refresh every 3 seconds
+function renderHeatmap(heatmap) {
+  const zones = (heatmap.zones || []).map(z => z.zone_id);
+  const values = (heatmap.zones || []).map(z => z.normalized_score);
+  if (!heatmapChart) {
+    heatmapChart = new Chart(document.getElementById("heatmapChart"), {
+      type: "bar",
+      data: {
+        labels: zones,
+        datasets: [{ label: "Activity score", data: values }]
+      }
+    });
+  } else {
+    heatmapChart.data.labels = zones;
+    heatmapChart.data.datasets[0].data = values;
+    heatmapChart.update();
+  }
+}
+
+function renderAnomaly(anomalies) {
+  const alertBox = document.getElementById("alert");
+  if (anomalies && anomalies.length) {
+    const top = anomalies[0];
+    alertBox.style.display = "block";
+    alertBox.innerText = `${top.type}: ${top.suggested_action}`;
+  } else {
+    alertBox.style.display = "none";
+  }
+}
+
+function renderKpis(metrics, funnel, health, streamCameras) {
+  document.getElementById("visitors").innerText = metrics.unique_visitors || 0;
+  document.getElementById("conversion").innerText = `${((metrics.conversion_rate || 0) * 100).toFixed(1)}%`;
+  document.getElementById("billing").innerText = (funnel.counts && funnel.counts.billing_queue) || 0;
+
+  const selected = (streamCameras.cameras || []).find(c => c.camera_id === selectedCameraId);
+  const stale = selected && !selected.last_updated_at;
+  const healthLabel = health.status || "OK";
+  feedHealth.innerText = stale ? `${healthLabel} / NO FEED` : healthLabel;
+}
+
+async function fetchData() {
+  try {
+    const [metrics, funnel, heatmap, anomalies, progress, health, streamCameras] = await Promise.all([
+      api(`/stores/${STORE}/metrics`),
+      api(`/stores/${STORE}/funnel`),
+      api(`/stores/${STORE}/heatmap`),
+      api(`/stores/${STORE}/anomalies`),
+      api(`/stores/${STORE}/progress`),
+      api(`/health`),
+      api(`/stream/cameras`)
+    ]);
+
+    const cameraIds = (streamCameras.cameras || []).map(c => c.camera_id);
+    renderCameraOptions(cameraIds);
+    renderAllCameraFeeds(cameraIds);
+    renderProgress(progress);
+    renderFunnel(funnel);
+    renderHeatmap(heatmap);
+    renderAnomaly(anomalies);
+    renderKpis(metrics, funnel, health, streamCameras);
+  } catch (err) {
+    console.log("Dashboard fetch error:", err);
+  }
+}
+
+cameraSelect.addEventListener("change", e => setFocusedCamera(e.target.value));
 setInterval(fetchData, 3000);
 fetchData();
 </script>
-
 </body>
 </html>

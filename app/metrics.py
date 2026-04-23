@@ -1,10 +1,67 @@
 import sqlite3
+import csv
+from datetime import datetime, timezone, timedelta
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
 from app.db import get_conn
 
 router = APIRouter()
+POS_PATH = Path("data/pos_transactions.csv")
+
+
+def _parse_iso(ts: str) -> datetime:
+    return datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone(timezone.utc)
+
+
+def _converted_visitors_from_pos(c, store_id: str) -> int:
+    if not POS_PATH.exists():
+        return -1
+
+    # All billing presence events for this store (used for 5-minute pre-transaction linking).
+    c.execute(
+        """
+        SELECT visitor_id, timestamp
+        FROM events
+        WHERE store_id=?
+        AND is_staff=0
+        AND event_type IN ('BILLING_QUEUE_JOIN', 'ZONE_DWELL', 'ZONE_ENTER')
+        AND zone_id='BILLING'
+        """,
+        (store_id,),
+    )
+    billing_rows = c.fetchall()
+    visitor_times: dict[str, list[datetime]] = {}
+    for row in billing_rows:
+        try:
+            visitor_times.setdefault(row[0], []).append(_parse_iso(row[1]))
+        except Exception:
+            continue
+    if not visitor_times:
+        return 0
+
+    today = datetime.now(timezone.utc).date()
+    converted_visitors: set[str] = set()
+    with POS_PATH.open("r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for rec in reader:
+            if rec.get("store_id") != store_id:
+                continue
+            ts = rec.get("timestamp")
+            if not ts:
+                continue
+            try:
+                txn_time = _parse_iso(ts)
+            except Exception:
+                continue
+            if txn_time.date() != today:
+                continue
+            low = txn_time - timedelta(minutes=5)
+            for visitor_id, moments in visitor_times.items():
+                if any(low <= m <= txn_time for m in moments):
+                    converted_visitors.add(visitor_id)
+    return len(converted_visitors)
 
 
 @router.get("/stores/{store_id}/metrics")
@@ -24,18 +81,20 @@ def get_metrics(store_id: str):
             )
             visitors = c.fetchone()[0] or 0
 
-            c.execute(
-                f"""
-                SELECT COUNT(DISTINCT visitor_id)
-                FROM events
-                WHERE store_id=?
-                AND is_staff=0
-                AND event_type='BILLING_QUEUE_JOIN'
-                AND {today_filter}
-                """,
-                (store_id,),
-            )
-            converted_visitors = c.fetchone()[0] or 0
+            converted_visitors = _converted_visitors_from_pos(c, store_id)
+            if converted_visitors < 0:
+                c.execute(
+                    f"""
+                    SELECT COUNT(DISTINCT visitor_id)
+                    FROM events
+                    WHERE store_id=?
+                    AND is_staff=0
+                    AND event_type='BILLING_QUEUE_JOIN'
+                    AND {today_filter}
+                    """,
+                    (store_id,),
+                )
+                converted_visitors = c.fetchone()[0] or 0
 
             c.execute(
                 f"""

@@ -1,0 +1,39 @@
+============================= test session starts =============================
+platform win32 -- Python 3.11.9, pytest-9.0.3, pluggy-1.6.0
+rootdir: C:\Users\harme\OneDrive\Desktop\store-intelligence-system
+configfile: pytest.ini
+plugins: anyio-4.13.0, cov-7.1.0
+collected 41 items
+
+tests\test_anomalies.py ......                                           [ 14%]
+tests\test_funnel.py .                                                   [ 17%]
+tests\test_health_heatmap_stream.py ......                               [ 31%]
+tests\test_metrics.py .......                                            [ 48%]
+tests\test_pipeline.py .........                                         [ 70%]
+tests\test_pipeline_emit_tracker.py .........                            [ 92%]
+tests\test_pos_progress.py ...                                           [100%]
+
+=============================== tests coverage ================================
+_______________ coverage: platform win32, python 3.11.9-final-0 _______________
+
+Name                        Stmts   Miss  Cover   Missing
+---------------------------------------------------------
+app\anomalies.py               47      3    94%   18, 154-155
+app\db.py                      24      2    92%   41-42
+app\funnel.py                  69     10    86%   38-39, 41, 49, 52, 55-56, 58, 150-151
+app\health.py                  29      0   100%
+app\heatmap.py                 28      0   100%
+app\ingestion.py               38      0   100%
+app\logging_middleware.py      21      2    90%   23-24
+app\main.py                    24      0   100%
+app\metrics.py                 68     10    85%   39-40, 42, 50, 53, 56-57, 59, 171-172
+app\models.py                  14      0   100%
+app\progress.py                22      0   100%
+app\stream.py                  41      9    78%   39-41, 58-68
+pipeline\detect.py             18      0   100%
+pipeline\emit.py              108     13    88%   103, 182, 186-206
+pipeline\run.py               150    150     0%   2-269
+pipeline\tracker.py            91      4    96%   47, 84, 109, 111
+---------------------------------------------------------
+TOTAL                         792    203    74%
+============================= 41 passed in 15.15s =============================

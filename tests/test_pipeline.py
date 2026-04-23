@@ -1,18 +1,15 @@
 # tests/test_pipeline.py
 # PROMPT:
-# Write pytest tests using FastAPI TestClient for POST /events/ingest with realistic production-level cases:
-# valid batch, >500 batch, idempotency, duplicate event_id handling, partial success, structured response checks,
-# empty batch, mixed batch (valid + duplicate + malformed), and DB duplicate safety assertions.
-
+# Need strong tests for /events/ingest so real flow doesn't break.
+# Covered normal insert, too big batch, duplicates, idempotency,
+# malformed input, mixed payload, empty payload, and db-down case.
+#
 # CHANGES MADE:
-# 1) Matched assertions to actual API response keys used in this project:
-#    received, inserted, skipped, duplicate, malformed, errors.
-# 2) Added per-test unique event_id generation to avoid cross-test collisions.
-# 3) Added DB cleanup/count helpers for deterministic idempotency and dedup checks.
-# 4) Added sqlite row-count assertions to confirm no duplicate DB inserts.
-# 5) Added pytest import-path setup guidance (project root pytest.ini with `pythonpath = .`)
-#    so tests can import `app.main` reliably.
-# 6) Added graceful degradation test for DB-unavailable path to verify structured HTTP 503 response.
+# - Assertions match current API response keys: received/inserted/skipped/duplicate/malformed/errors.
+# - Used unique event ids per test so tests don't clash.
+# - Added cleanup + count helpers to keep runs clean and repeatable.
+# - Added db row count checks to confirm duplicates are not inserted twice.
+# - Added graceful 503 test for database unavailable path.
 
 import sqlite3
 import uuid

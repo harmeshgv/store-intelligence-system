@@ -1,0 +1,114 @@
+{
+  "generated_at": "2026-04-22T20:20:49Z",
+  "frame_limit": 450,
+  "videos": [
+    "data/CAM 3.mp4"
+  ],
+  "experiments_count": 5,
+  "results": [
+    {
+      "ok": true,
+      "config": {
+        "name": "yolov8s_distance_reid",
+        "model_path": "yolov8s.pt",
+        "conf": 0.4,
+        "mode": "distance_reid",
+        "ttl": 50,
+        "max_dist": 150.0,
+        "min_frames": 15,
+        "reid_thresh": 0.7
+      },
+      "video_path": "data/CAM 3.mp4",
+      "frame_limit": 450,
+      "processed_frames": 450,
+      "video_fps": 29.97002997002997,
+      "video_total_frames": 4436,
+      "runtime_sec": 43.871,
+      "avg_fps": 10.257,
+      "detections_total": 113,
+      "track_observations_total": 109,
+      "valid_track_observations": 82,
+      "unique_humans_estimate": 4
+    },
+    {
+      "ok": true,
+      "config": {
+        "name": "yolov8m_distance_reid",
+        "model_path": "yolov8m.pt",
+        "conf": 0.4,
+        "mode": "distance_reid",
+        "ttl": 50,
+        "max_dist": 150.0,
+        "min_frames": 15,
+        "reid_thresh": 0.7
+      },
+      "video_path": "data/CAM 3.mp4",
+      "frame_limit": 450,
+      "processed_frames": 450,
+      "video_fps": 29.97002997002997,
+      "video_total_frames": 4436,
+      "runtime_sec": 96.997,
+      "avg_fps": 4.639,
+      "detections_total": 453,
+      "track_observations_total": 450,
+      "valid_track_observations": 396,
+      "unique_humans_estimate": 4
+    },
+    {
+      "ok": true,
+      "config": {
+        "name": "yolov8s_hist_embedding_reid",
+        "model_path": "yolov8s.pt",
+        "conf": 0.4,
+        "mode": "hist_embedding_reid",
+        "ttl": 50,
+        "max_dist": 150.0,
+        "min_frames": 15,
+        "reid_thresh": 0.7
+      },
+      "video_path": "data/CAM 3.mp4",
+      "frame_limit": 450,
+      "processed_frames": 450,
+      "video_fps": 29.97002997002997,
+      "video_total_frames": 4436,
+      "runtime_sec": 43.823,
+      "avg_fps": 10.269,
+      "detections_total": 113,
+      "track_observations_total": 109,
+      "valid_track_observations": 82,
+      "unique_humans_estimate": 7
+    },
+    {
+      "ok": false,
+      "skipped": true,
+      "error": "DeepSORT dependency not installed (deep_sort_realtime).",
+      "config": {
+        "name": "yolov8s_deepsort",
+        "model_path": "yolov8s.pt",
+        "conf": 0.4,
+        "mode": "deepsort",
+        "ttl": 50,
+        "max_dist": 150.0,
+        "min_frames": 15,
+        "reid_thresh": 0.7
+      },
+      "video_path": "data/CAM 3.mp4"
+    },
+    {
+      "ok": false,
+      "skipped": true,
+      "error": "StrongSORT dependency not installed (boxmot with StrongSORT).",
+      "config": {
+        "name": "yolov8s_strongsort",
+        "model_path": "yolov8s.pt",
+        "conf": 0.4,
+        "mode": "strongsort",
+        "ttl": 50,
+        "max_dist": 150.0,
+        "min_frames": 15,
+        "reid_thresh": 0.7
+      },
+      "video_path": "data/CAM 3.mp4"
+    }
+  ]
+}

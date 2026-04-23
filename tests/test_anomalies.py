@@ -1,28 +1,14 @@
 # tests/test_anomalies.py
 # PROMPT:
-# Write pytest tests for GET /stores/{store_id}/anomalies.
-# Focus on real-world scenarios rather than only synthetic triggers.
-# Cover:
-# - Dead zone (>30m inactivity) -> CRITICAL
-# - Queue spike -> WARN
-# - Conversion drop -> WARN
-# Edge cases:
-# - no events
-# - normal behavior (no anomalies)
-# - only ENTRY events
-# - very small dataset
-# Also verify:
-# - response is a list
-# - each anomaly has type, severity, suggested_action
-# - severity is INFO/WARN/CRITICAL
+# Need anomaly tests that feel real, not fake-only triggers.
+# Covered dead zone, queue spike, conversion drop,
+# plus no-data, only-entry, and small dataset safety.
 #
 # CHANGES MADE:
-# 1) Aligned anomaly expectations with current implementation logic:
-#    DEAD_ZONE from stale zone timestamps, QUEUE_SPIKE from recent-vs-baseline queue_depth,
-#    and CONVERSION_DROP from today vs historical conversion ratio.
-# 2) Added deterministic timestamp seeding to exercise 30-minute and 7-day windows.
-# 3) Simplified assertions to check anomaly type/severity presence rather than exact full object equality.
-# 4) Added edge-case tests for no-data, only-ENTRY, and small dataset stability.
+# - Assertions are aligned to current anomaly logic in code.
+# - Added timestamp seeding so 30-min and 7-day windows are tested properly.
+# - Kept checks practical (type/severity/action present) instead of over-fragile exact matches.
+# - Added edge-case tests so endpoint stays stable even with less data.
 
 import uuid
 from datetime import datetime, timedelta, timezone

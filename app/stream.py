@@ -2,6 +2,7 @@ import base64
 import time
 from threading import Lock
 from typing import Any
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -10,6 +11,7 @@ router = APIRouter()
 
 _lock = Lock()
 _latest_frames: dict[str, bytes] = {}
+_last_updated_at: dict[str, str] = {}
 
 
 @router.post("/stream/frame")
@@ -26,7 +28,26 @@ def push_frame(payload: dict[str, Any]):
 
     with _lock:
         _latest_frames[camera_id] = jpg_bytes
+        _last_updated_at[camera_id] = datetime.now(timezone.utc).isoformat(timespec="seconds").replace(
+            "+00:00", "Z"
+        )
     return {"ok": True}
+
+
+@router.get("/stream/cameras")
+def list_stream_cameras():
+    with _lock:
+        cameras = sorted(_latest_frames.keys())
+        return {
+            "cameras": [
+                {
+                    "camera_id": cam,
+                    "has_frame": cam in _latest_frames,
+                    "last_updated_at": _last_updated_at.get(cam),
+                }
+                for cam in cameras
+            ]
+        }
 
 
 @router.get("/stream/{camera_id}")

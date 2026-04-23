@@ -1,14 +1,12 @@
 # tests/test_funnel.py
 # PROMPT:
-# Write pytest tests for GET /stores/{store_id}/funnel with focus on session-level behavior.
-# Include a re-entry scenario to ensure the funnel does not double-count a visitor
-# when ENTRY and REENTRY are emitted for the same visitor_id.
+# Need a clean funnel test for re-entry flow.
+# Main check: same visitor with ENTRY + REENTRY should not be double-counted at entry stage.
 #
 # CHANGES MADE:
-# 1) Aligned assertions to the current /funnel response schema:
-#    {"counts": {...}, "drop_off_pct": {...}}.
-# 2) Added store-isolated fixture data and event-id prefix cleanup for deterministic runs.
-# 3) Added re-entry dedup assertion at the entry stage using the same visitor_id.
+# - Assertions follow current funnel response shape (counts + drop_off_pct).
+# - Used isolated store data and event-id prefix cleanup for stable runs.
+# - Added explicit re-entry dedup check for the entry stage.
 
 import uuid
 from datetime import datetime, timezone, timedelta

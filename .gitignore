@@ -9,4 +9,6 @@ videos/
 *.pt
 *.db
 events_output.jsonl
-experiments/
+.coverage
+coverage.xml
+.pytest_cache/

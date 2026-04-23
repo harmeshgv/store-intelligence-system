@@ -3,7 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.anomalies import router as anomalies_router
 from app.db import init_db
-from app.debug import router as debug_router
 from app.funnel import router as funnel_router
 from app.health import router as health_router
 from app.heatmap import router as heatmap_router
@@ -34,7 +33,6 @@ app.include_router(metrics_router)
 app.include_router(funnel_router)
 app.include_router(anomalies_router)
 app.include_router(heatmap_router)
-app.include_router(debug_router)
 app.include_router(progress_router)
 app.include_router(stream_router)
 
